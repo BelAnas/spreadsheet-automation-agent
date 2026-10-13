@@ -1,0 +1,277 @@
+{
+  "id": 24,
+  "slug": "spreadsheet-agent",
+  "repo": "spreadsheet-automation-agent",
+  "title": "Spreadsheet and report automation agent",
+  "tagline": "Turns a folder of messy Excel, CSV and Google Sheets exports into one clean monthly report with charts, a written summary and a full audit trail.",
+  "category": "Data & Analytics",
+  "status": "building",
+  "started": "2026-10-13",
+  "finished": "",
+  "pitch": "Every month somebody on your team opens five spreadsheets from five people, fixes the headers, the dates and the product codes by hand, pastes them together and writes the same report. I built an agent that does that work in a few seconds: you drop the files in a folder, and it gives back an Excel report with charts, a web page, a written summary, a list of every row it could not use and a log of every fix it made. The numbers are computed by code, never by the language model, so the report is the same every time you run it.",
+  "problem": "Small and mid-sized companies run on spreadsheets that different people export in different shapes: title rows above the header, different column names, dates and prices typed in three formats, product codes with typos, totals rows and duplicates. Building the monthly report means hours of manual cleaning, and nobody can say afterwards which rows were changed or left out.",
+  "solution": "A Python pipeline with a language model in two small, checked roles. Code finds the header row, maps each column to a standard field, parses dates, numbers and product codes, joins the sales files to the product list and the targets, sets aside the rows it cannot trust, computes the figures and builds an Excel report and a web report. The language model is asked only two things: what a column means when the rules cannot tell, and to write the summary paragraph from figures that are already computed. Both answers are checked by code before they are used, and the report works without any model at all.",
+  "features": [
+    "Reads .xlsx workbooks (every sheet), .csv files with any common delimiter and encoding, and Google Sheets by link",
+    "Finds the real header row under title banners and skips totals rows, repeated headers, blank rows and note lines",
+    "Maps differently named columns to one standard schema with rules first and a language model only for the leftovers",
+    "Parses dates, prices and quantities written in several national formats and decides day-first or month-first per column",
+    "Repairs product codes against the product list and reports the ones it cannot match",
+    "Sets aside unusable rows with the reason and the original row number instead of dropping them silently",
+    "Compares the month with the previous month and with the targets",
+    "Produces an Excel workbook with native charts, a web report with interactive charts, and a written summary",
+    "Checks every number in the written summary against the computed figures and falls back to a template if one does not match",
+    "Runs from one command, on a schedule, or from a small upload page"
+  ],
+  "stack": [
+    {
+      "name": "pandas",
+      "role": "Holds the tables, joins them and computes every figure in the report.",
+      "why": "It is the standard tool for tabular data in Python and any data engineer can maintain it."
+    },
+    {
+      "name": "openpyxl",
+      "role": "Reads Excel workbooks cell by cell and writes the Excel report with native charts.",
+      "why": "Reading cell by cell lets the agent see title rows and totals rows that a default table reader would mix into the data."
+    },
+    {
+      "name": "Plotly",
+      "role": "Draws the interactive charts in the web report.",
+      "why": "The charts work in any browser with no server, and the reader can hover to see exact values."
+    },
+    {
+      "name": "OpenAI API (optional)",
+      "role": "Names the columns the rules cannot identify and writes the summary paragraph.",
+      "why": "The client is OpenAI-compatible, so the same code runs on OpenAI, Azure OpenAI or a local model through Ollama."
+    },
+    {
+      "name": "FastAPI",
+      "role": "Serves the upload page and the run endpoint.",
+      "why": "It is small, typed and documents its own API."
+    },
+    {
+      "name": "pytest",
+      "role": "Tests every cleaning rule and the whole pipeline offline.",
+      "why": "The tests run with no key and no network, so anyone can check the project."
+    }
+  ],
+  "keywords": [],
+  "topics": [],
+  "workflow": [
+    {
+      "step": "Collect",
+      "detail": "The agent lists the files in the inbox folder and downloads any Google Sheets links as CSV."
+    },
+    {
+      "step": "Find the table",
+      "detail": "For each sheet it finds the header row, then removes banners, blank rows, repeated headers, totals rows and note lines, and logs each removal."
+    },
+    {
+      "step": "Map the columns",
+      "detail": "Each column is matched to a standard field by name and by what its values look like. Columns the rules cannot place are sent to the language model, and its answer is accepted only if the values fit the field."
+    },
+    {
+      "step": "Clean the values",
+      "detail": "Dates, numbers and product codes are converted to one format. Rows that cannot be converted are set aside with a reason."
+    },
+    {
+      "step": "Join",
+      "detail": "Sales rows from all files are stacked, duplicates are removed, and each row is joined to the product list and the regional targets."
+    },
+    {
+      "step": "Measure",
+      "detail": "Revenue, units, orders, margin, returns, the split by region and category, the best products and the change against the previous month are computed with pandas."
+    },
+    {
+      "step": "Write",
+      "detail": "The language model writes a short summary from the computed figures. Code checks every number in it; if one is not in the figures the template summary is used."
+    },
+    {
+      "step": "Publish",
+      "detail": "The agent writes the Excel report, the web report, the summary text and a run log, and saves the month's figures for next month's comparison."
+    }
+  ],
+  "phases": [
+    {
+      "name": "Foundation",
+      "goal": "A repository that runs, realistic messy demo files with a known correct answer, and a naive baseline to beat.",
+      "status": "done",
+      "steps": [
+        {
+          "text": "Create the repository skeleton, the virtual environment and pinned requirements",
+          "done": true
+        },
+        {
+          "text": "Write the data generator: a garden-supplies wholesaler with three regions, a product list and targets, plus the clean truth",
+          "done": true
+        },
+        {
+          "text": "Write the mess generator: banners, renamed columns, mixed date and number formats, typos, totals rows, duplicates, bad rows",
+          "done": true
+        },
+        {
+          "text": "Write the file readers for xlsx, csv and Google Sheets links",
+          "done": true
+        },
+        {
+          "text": "Write the naive baseline (default pandas readers and exact column names) and measure it against the truth",
+          "done": true
+        }
+      ],
+      "outcome": "A git repository with pinned dependencies; a generator that writes two months of fictional sales for a garden-supplies wholesaler (three branches, 48 products, targets) together with the clean truth; a mess generator with 17 kinds of defect; readers for xlsx, csv and Google Sheets links that return the raw grid of cells; and a naive baseline (default pandas readers) that recovers 0% of the demo rows, because every demo file has a banner, text-formatted numbers or unknown headers."
+    },
+    {
+      "name": "Core",
+      "goal": "The cleaning pipeline works end to end on the mock provider.",
+      "status": "todo",
+      "steps": [
+        {
+          "text": "Header row detection and removal of banners, totals, repeated headers and blank rows",
+          "done": false
+        },
+        {
+          "text": "Column mapping by alias, similar spelling and value profile, with the language-model step for leftovers",
+          "done": false
+        },
+        {
+          "text": "Value parsers for dates, numbers and product codes with per-column format inference",
+          "done": false
+        },
+        {
+          "text": "Stacking, duplicate removal, joins to products and targets, and the rejected-rows list",
+          "done": false
+        },
+        {
+          "text": "The orchestrator that runs the steps in order and records every decision",
+          "done": false
+        }
+      ],
+      "outcome": ""
+    },
+    {
+      "name": "Report",
+      "goal": "The cleaned data becomes a report a manager can read.",
+      "status": "todo",
+      "steps": [
+        {
+          "text": "Figures: totals, splits by region and category, top products, daily trend, comparison with last month and with targets",
+          "done": false
+        },
+        {
+          "text": "Written summary: template version, language-model version and the number check",
+          "done": false
+        },
+        {
+          "text": "Excel workbook with native charts, clean data, rejected rows, column mapping and audit log",
+          "done": false
+        },
+        {
+          "text": "Web report with interactive charts",
+          "done": false
+        },
+        {
+          "text": "History file so that next month's run can compare with this one",
+          "done": false
+        }
+      ],
+      "outcome": ""
+    },
+    {
+      "name": "Quality",
+      "goal": "Measured accuracy on files the pipeline has not seen, and guardrails for the model.",
+      "status": "todo",
+      "steps": [
+        {
+          "text": "Benchmark of randomly generated messy files with known truth",
+          "done": false
+        },
+        {
+          "text": "Metrics: header detection, column mapping (seen and unseen names), row recovery, revenue error, rejected-row precision and recall",
+          "done": false
+        },
+        {
+          "text": "Compare with the naive baseline on the same files",
+          "done": false
+        },
+        {
+          "text": "Fix the defects the benchmark finds and re-run",
+          "done": false
+        },
+        {
+          "text": "Error handling: unreadable files, sheets with no table, missing product list, model failures",
+          "done": false
+        }
+      ],
+      "outcome": ""
+    },
+    {
+      "name": "Interface",
+      "goal": "One command for the demo, a schedulable command for real use, and an upload page.",
+      "status": "todo",
+      "steps": [
+        {
+          "text": "Command line: demo, run, and make-data commands with a readable step-by-step log",
+          "done": false
+        },
+        {
+          "text": "FastAPI upload page: drop files, run, view and download the report",
+          "done": false
+        },
+        {
+          "text": "Google Sheets link test against a local web server",
+          "done": false
+        },
+        {
+          "text": "Schedule example (cron) for the recurring run",
+          "done": false
+        }
+      ],
+      "outcome": ""
+    },
+    {
+      "name": "Verification and docs",
+      "goal": "Everything is tested, measured, and explained.",
+      "status": "todo",
+      "steps": [
+        {
+          "text": "Full pytest run, offline",
+          "done": false
+        },
+        {
+          "text": "Fresh-clone run of the quick start",
+          "done": false
+        },
+        {
+          "text": "Real-model check (OpenAI if a key is present, otherwise a local model through the same client)",
+          "done": false
+        },
+        {
+          "text": "README with diagram, real output, screenshot and results table",
+          "done": false
+        },
+        {
+          "text": "Complete the dashboard entry: decisions, client questions, concepts, limits",
+          "done": false
+        },
+        {
+          "text": "Secret scan and final commit",
+          "done": false
+        }
+      ],
+      "outcome": ""
+    }
+  ],
+  "decisions": [],
+  "results": [],
+  "client_qa": [],
+  "concepts": [],
+  "limits": [],
+  "run": [],
+  "files": [],
+  "verification": {
+    "tests": "",
+    "live_llm": "pending",
+    "cost_usd": 0,
+    "notes": ""
+  }
+}

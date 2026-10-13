@@ -1,0 +1,9 @@
+# Runtime dependencies, pinned so a fresh clone installs exactly what was tested.
+pandas==2.2.3
+openpyxl==3.1.5
+plotly==5.24.1
+Jinja2==3.1.4
+openai==1.54.4
+fastapi==0.115.5
+uvicorn==0.32.1
+python-multipart==0.0.17

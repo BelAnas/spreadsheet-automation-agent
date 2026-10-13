@@ -1,0 +1,10 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# Generated at run time: the demo data, the reports and the web runs are rebuilt by one command.
+data/
+reports/
+runs/
+evals/tmp/
