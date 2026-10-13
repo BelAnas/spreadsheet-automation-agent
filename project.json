@@ -123,30 +123,30 @@
     {
       "name": "Core",
       "goal": "The cleaning pipeline works end to end on the mock provider.",
-      "status": "todo",
+      "status": "done",
       "steps": [
         {
           "text": "Header row detection and removal of banners, totals, repeated headers and blank rows",
-          "done": false
+          "done": true
         },
         {
           "text": "Column mapping by alias, similar spelling and value profile, with the language-model step for leftovers",
-          "done": false
+          "done": true
         },
         {
           "text": "Value parsers for dates, numbers and product codes with per-column format inference",
-          "done": false
+          "done": true
         },
         {
           "text": "Stacking, duplicate removal, joins to products and targets, and the rejected-rows list",
-          "done": false
+          "done": true
         },
         {
           "text": "The orchestrator that runs the steps in order and records every decision",
-          "done": false
+          "done": true
         }
       ],
-      "outcome": ""
+      "outcome": "The pipeline runs end to end with no model: it finds the header row, maps the columns (by name, by arithmetic, by value profile, and by the language model for leftovers), parses dates, numbers and product codes with the format decided per column, removes duplicates, joins the product list and targets, and lists every rejected row with its reason. On both demo months it recovers 100% of the true order lines with every value exact."
     },
     {
       "name": "Report",
