@@ -169,6 +169,33 @@ def _arithmetic(df: pd.DataFrame, assigned: dict[str, str], free: list[str], pro
     return {f: c for f, c in found[0].items() if f in missing}
 
 
+def _price_or_amount(df: pd.DataFrame, sku_col: str, qty_col: str, col: str) -> str | None:
+    """Tell a unit price from a line total when only one of them is in the file.
+
+    A unit price stays about the same for one product whatever the quantity; a line total
+    divided by the quantity does. Products sold at least twice in different quantities vote.
+    """
+    qty, value = _numbers(df, qty_col, 2000), _numbers(df, col, 2000)
+    groups: dict[str, list[tuple[float, float]]] = {}
+    for code, q, v in zip(df[sku_col].head(2000), qty, value):
+        if q and v and not is_blank(code):
+            groups.setdefault(sku_key(code), []).append((abs(q), abs(v)))
+    price = amount = 0
+    for rows in groups.values():
+        if len({q for q, _ in rows}) < 2:
+            continue
+        flat = max(v for _, v in rows) / min(v for _, v in rows) <= 1.2
+        per_unit = [v / q for q, v in rows]
+        scaled = max(per_unit) / min(per_unit) <= 1.2
+        price += flat and not scaled
+        amount += scaled and not flat
+    if price + amount < 5:
+        return None
+    if price >= 0.8 * (price + amount):
+        return "unit_price"
+    return "amount" if amount >= 0.8 * (price + amount) else None
+
+
 def _ask_model(llm, header: str, samples: list[object], open_fields: list[Field]) -> str | None:
     listing = "\n".join(f"- {f.name}: {f.description}" for f in open_fields)
     user = (f"Column header: {header!r}\nSample values: {', '.join(repr(str(s)) for s in samples)}\n\n"
@@ -190,6 +217,11 @@ def map_columns(df: pd.DataFrame, schema: Schema, ctx: MappingContext, use_model
 
     def place(column: str, f: Field, method: str, confidence: float, note: str = "") -> bool:
         if f.name in assigned or column in taken or not fits(f, profiles[column], schema.role):
+            return False
+        # Only an exact header may introduce a quantity with decimals (goods sold by weight). A header
+        # that merely resembles one ("Unit $" looks like "Units") must hold whole numbers.
+        p = profiles[column]
+        if f.name == "quantity" and method not in ("name", "memory") and p["integer"] < 0.98 * p["number"]:
             return False
         assigned[f.name] = ColumnMatch(column, f.name, method, round(confidence, 2), note)
         taken.add(column)
@@ -245,6 +277,39 @@ def map_columns(df: pd.DataFrame, schema: Schema, ctx: MappingContext, use_model
             column = only(lambda p: p["month"] >= 0.8 and p["number"] < 0.5)
         if column:
             place(column, f, "profile", 0.8, "the only column whose values fit")
+
+    if schema.role == "sales":
+        def open_numbers() -> list[str]:
+            return [c for c in free if c not in taken and profiles[c]["number"] >= 0.9 and profiles[c]["date"] < 0.6]
+
+        # Files often carry only two of quantity, price and total, so the product test above cannot run.
+        # With no anchor at all, two number columns of which one is whole numbers are read the same way.
+        if "quantity" not in assigned and ({"unit_price", "amount"} & assigned.keys() or len(open_numbers()) == 2):
+            whole = [c for c in open_numbers() if profiles[c]["integer"] >= 0.98 * profiles[c]["number"]]
+            if len(whole) == 1:
+                place(whole[0], schema.field("quantity"), "profile", 0.75,
+                      "the only whole-number column next to a price or a total")
+        # A price or total placed only because its header resembles a known name is re-examined with the
+        # same per-product test: "Ext. Price" resembles "price" but is a line total.
+        weak = [f for f in ("unit_price", "amount") if f in assigned and assigned[f].method == "similar name"]
+        if len(weak) == 1 and {"quantity", "sku"} <= assigned.keys() and \
+                len({"unit_price", "amount"} & assigned.keys()) == 1:
+            match = assigned[weak[0]]
+            kind = _price_or_amount(df, assigned["sku"].column, assigned["quantity"].column, match.column)
+            if kind and kind != weak[0]:
+                del assigned[weak[0]]
+                taken.discard(match.column)
+                place(match.column, schema.field(kind), "profile", 0.75,
+                      "the header suggested otherwise, but the values behave like a "
+                      + ("unit price" if kind == "unit_price" else "line total"))
+        if {"quantity", "sku"} <= assigned.keys() and not {"unit_price", "amount"} & assigned.keys() \
+                and len(open_numbers()) == 1:
+            column = open_numbers()[0]
+            kind = _price_or_amount(df, assigned["sku"].column, assigned["quantity"].column, column)
+            if kind:
+                place(column, schema.field(kind), "profile", 0.75,
+                      "stable per product, so a unit price" if kind == "unit_price"
+                      else "proportional to the quantity per product, so a line total")
 
     # 5. the language model, for what is still open
     llm = ctx.llm

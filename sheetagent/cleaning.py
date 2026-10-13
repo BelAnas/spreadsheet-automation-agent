@@ -214,7 +214,11 @@ def clean_sales(table: Table, mapping: Mapping, products: ProductIndex | None, r
             "no region column and no region in the file name: rows marked Unassigned", len(rows))
     if not col["order_id"]:
         log("no order number column: duplicate lines cannot be detected in this file", len(rows))
-    return CleanResult(pd.DataFrame(rows, columns=SALES_COLUMNS), rejected, audit)
+    out = pd.DataFrame(rows, columns=SALES_COLUMNS)
+    # A file with no quantity column leaves None here; as floats the gaps become NaN and sums still work.
+    for name in ("quantity", "unit_price", "amount"):
+        out[name] = pd.to_numeric(out[name], errors="coerce")
+    return CleanResult(out, rejected, audit)
 
 
 def drop_duplicates(sales: pd.DataFrame) -> tuple[pd.DataFrame, list[dict], list[dict]]:
@@ -226,7 +230,7 @@ def drop_duplicates(sales: pd.DataFrame) -> tuple[pd.DataFrame, list[dict], list
     has_id = sales["order_id"].notna()
     duplicate = has_id & sales.duplicated(keys, keep="first")
     rejected = [{"source": r.source, "row": r.row, "reason": "duplicate line",
-                 "original": f"order {r.order_id}, {r.sku}, {r.order_date}, quantity {r.quantity:g}, amount {r.amount}"}
+                 "original": f"order {r.order_id}, {r.sku}, {r.order_date}, amount {r.amount}"}
                 for r in sales[duplicate].itertuples()]
     audit = [{"step": "join", "source": source, "action": "duplicate line removed", "count": int(count), "example": ""}
              for source, count in sales[duplicate].groupby("source").size().items()]

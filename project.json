@@ -151,30 +151,30 @@
     {
       "name": "Report",
       "goal": "The cleaned data becomes a report a manager can read.",
-      "status": "todo",
+      "status": "done",
       "steps": [
         {
           "text": "Figures: totals, splits by region and category, top products, daily trend, comparison with last month and with targets",
-          "done": false
+          "done": true
         },
         {
           "text": "Written summary: template version, language-model version and the number check",
-          "done": false
+          "done": true
         },
         {
           "text": "Excel workbook with native charts, clean data, rejected rows, column mapping and audit log",
-          "done": false
+          "done": true
         },
         {
           "text": "Web report with interactive charts",
-          "done": false
+          "done": true
         },
         {
           "text": "History file so that next month's run can compare with this one",
-          "done": false
+          "done": true
         }
       ],
-      "outcome": ""
+      "outcome": "One command builds the report for a month: an Excel workbook with nine sheets and three native charts (summary, regions, categories, top products, daily figures, clean data, rejected rows, column mapping, audit log), a self-contained web page with three interactive charts that follows the reader's light or dark theme, a summary text file and a run log. The summary is written from a fact sheet and every number in it is checked by code. Each run saves the month's figures, so the September report shows +6.2% against August."
     },
     {
       "name": "Quality",

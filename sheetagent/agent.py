@@ -106,7 +106,19 @@ class Agent:
         # 3. Map the columns. Reference tables first: the product codes and the region names
         #    they contain help to recognise the columns of the sales files.
         ctx = MappingContext(memory=load_memory(self.memory_path), llm=self.llm)
-        roles: list[tuple[Table, Mapping | None]] = [(t, detect_role(t.df, ctx, use_model=False)) for t in tables]
+        # Sheets of one workbook that share the same headers are one table cut into pieces (one sheet per
+        # week, for instance). They are mapped together: more rows give the value-based rules more evidence,
+        # and the sheets cannot end up read in different ways.
+        families: dict[tuple, list[Table]] = {}
+        for t in tables:
+            families.setdefault((t.source, tuple(t.df.columns)), []).append(t)
+        pooled = {key: pd.concat([t.df for t in group], ignore_index=True) for key, group in families.items()}
+
+        def family(t: Table) -> pd.DataFrame:
+            return pooled[(t.source, tuple(t.df.columns))]
+
+        first_look = {key: detect_role(df, ctx, use_model=False) for key, df in pooled.items()}
+        roles: list[tuple[Table, Mapping | None]] = [(t, first_look[(t.source, tuple(t.df.columns))]) for t in tables]
         product_parts, target_parts = [], []
         for table, mapping in roles:
             if mapping and mapping.role == "products":
@@ -128,10 +140,14 @@ class Agent:
             ctx.regions = {r.lower() for r in run.targets["region"]}
 
         sales_tables: list[tuple[Table, Mapping]] = []
+        second_look: dict[tuple, Mapping | None] = {}
         for table, first in roles:
             if first and first.role in ("products", "targets"):
                 continue
-            mapping = detect_role(table.df, ctx)  # second look, now with the reference data and the model
+            key = (table.source, tuple(table.df.columns))
+            if key not in second_look:  # second look, now with the reference data and the model
+                second_look[key] = detect_role(family(table), ctx)
+            mapping = second_look[key]
             if mapping is None or mapping.role != "sales":
                 run.audit.append({"step": "map", "source": table.label, "count": int(len(table.df)), "example":
                                   ", ".join(c for c in table.df.columns if c != "_row")[:120],
@@ -181,7 +197,8 @@ class Agent:
             sales = sales[months == run.period].reset_index(drop=True)
             unknown = sales[~sales["sku_known"]]
             if len(unknown):
-                run.warnings.append(f"{unknown['sku'].nunique()} product codes are not in the product list "
+                n_codes = unknown['sku'].nunique()
+                run.warnings.append(f"{n_codes} product code{'s are' if n_codes > 1 else ' is'} not in the product list "
                                     f"({len(unknown)} lines, kept in the totals under '{metrics.UNKNOWN_CATEGORY}').")
             if (sales["region"] == "Unassigned").any():
                 run.warnings.append(f"{int((sales['region'] == 'Unassigned').sum())} lines have no region.")
