@@ -11,7 +11,7 @@ import re
 import unicodedata
 from datetime import date, datetime, timedelta
 
-_CURRENCY = re.compile(r"(?i)\b(usd|eur|gbp|mad|cad|aud|chf|aed|sar)\b|[$€£¥]")
+CURRENCY_MARK = re.compile(r"(?i)\b(usd|eur|gbp|mad|cad|aud|chf|aed|sar)\b|[$€£¥]")
 _UNIT = re.compile(r"(?i)(?<=\d)\s*(pcs?|pieces?|units?|ea|each|pc|x)\.?$")
 _SPACES = re.compile(r"[\s  ']")
 _THOUSANDS_COMMA = re.compile(r"^\d{1,3}(,\d{3})+$")
@@ -58,7 +58,7 @@ def _numeric_core(text: str) -> tuple[str, bool] | None:
     """Strip currency, units, spaces and the sign. Returns the digits-and-separators part."""
     s = text.strip()
     negative = (s.startswith("(") and s.endswith(")")) or s.startswith("-") or s.endswith("-")
-    s = _CURRENCY.sub("", s.strip("()"))
+    s = CURRENCY_MARK.sub("", s.strip("()"))
     s = _SPACES.sub("", _UNIT.sub("", s.strip())).strip("+-")
     if not s or not re.fullmatch(r"[\d.,]*\d[\d.,]*", s):
         return None

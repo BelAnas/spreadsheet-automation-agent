@@ -4,6 +4,11 @@ The model receives the figures as a fact sheet and is told to copy numbers, not 
 them. Then code reads the text back: every number in it must be on the fact sheet. If one
 is not, the model gets one retry with the offending numbers named, and after that the
 template summary is used. A wrong number in a report costs more than a plain sentence.
+
+The check has a known blind spot: it proves that each number exists, not that it is said
+about the right thing. On a small local model, 4 of 6 summaries passed the check while
+calling a month-over-month change a margin over target (evals/results_summary.json).
+That is why the template is the default writer and the model has to be asked for.
 """
 from __future__ import annotations
 

@@ -103,3 +103,8 @@ def test_duplicates_are_removed_only_when_there_is_an_order_number():
     no_id = clean(rows, header)
     assert len(drop_duplicates(no_id.rows)[0]) == 3  # identical lines may be two real sales
     assert any("no order number column" in a["action"] for a in no_id.audit)
+
+
+def test_currency_marks_are_collected_for_the_mixed_currency_warning():
+    result = clean(GOOD + [["A-8", "05/09/2026", "HT-0101", 1, "1,00 €", "1,00 €"]])
+    assert result.currencies == {"$", "€"}

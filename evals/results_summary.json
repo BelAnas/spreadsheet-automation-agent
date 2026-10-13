@@ -1,0 +1,76 @@
+{
+  "provider": "openai",
+  "model": "llama3.2-cpu:latest",
+  "months": 6,
+  "accepted_first_attempt": 6,
+  "accepted_after_retry": 0,
+  "replaced_by_template": 0,
+  "model_calls": 6,
+  "input_tokens": 2619,
+  "output_tokens": 849,
+  "cost_usd": null,
+  "seconds": 210.3,
+  "cases": [
+    {
+      "seed": 21,
+      "source": "model",
+      "attempts": 1,
+      "rejected_numbers": [],
+      "seconds": 32.9,
+      "text": "The company's total revenue for September 2026 was $309,383 USD from 845 order lines in 399 orders, with 9,120 units sold. This represents a +3.3% increase from August 2026, where revenue reached $299,555 USD. The overall target of $250,000 USD was exceeded by 123.8%. Region North generated the most revenue at $121,983 USD, accounting for 39.4% of the total and exceeding its target by 13.1%. The company's gross margin was $114,497 USD, representing 37.0% of revenue, while returns totaled $1,662 USD from 24 lines.",
+      "human_review": "wrong: says North exceeded its target by 13.1% (that is its change on the previous month; it reached 138.6% of target) and that the company target was exceeded by 123.8%"
+    },
+    {
+      "seed": 22,
+      "source": "model",
+      "attempts": 1,
+      "rejected_numbers": [],
+      "seconds": 29.3,
+      "text": "The company's total revenue for September 2026 was $310,501 USD from 399 orders, with 9,115 units sold. This represents a +6.2% increase in revenue compared to August 2026 and a significant achievement of reaching 119.9% of the target revenue of $259,000 USD. Region North generated $123,946 USD, accounting for 39.9% of the total, while Region West contributed $103,252 USD, making up 33.3% of the total. The gross margin was $113,291 USD, representing 36.5% of revenue, and returns totaled $875 from 20 lines.",
+      "human_review": "correct"
+    },
+    {
+      "seed": 23,
+      "source": "model",
+      "attempts": 1,
+      "rejected_numbers": [],
+      "seconds": 36.9,
+      "text": "The total revenue for September 2026 was $303,186 USD from 399 orders, with 9,362 units sold. This represents a decrease of 0.5% in revenue and 3.9% in units compared to August 2026. The company reached its target of $256,500 USD by 118.2%, exceeding the target for Region West ($78,000 USD) by 25.1%. However, Regions North and South underperformed their targets, with revenues at -10.6% and -11.5% respectively compared to August. The gross margin was $111,616 USD, accounting for 36.8% of revenue, while returns totaled $1,155 USD from 16 lines.",
+      "human_review": "wrong: says West exceeded its target by 25.1% (its change on the previous month) and that North underperformed its target (it reached 118.4%)"
+    },
+    {
+      "seed": 24,
+      "source": "model",
+      "attempts": 1,
+      "rejected_numbers": [],
+      "seconds": 32.4,
+      "text": "The company's total revenue for September 2026 was $307,938 USD from 399 orders, with 9,716 units sold. This represents a +3.4% increase in revenue compared to August 2026 and a significant achievement of reaching 121.2% of the target revenue of $254,000 USD. Region North saw the highest revenue growth at +11.8%, followed by Region South at +2.4%. The gross margin was $116,734 USD, accounting for 37.9% of total revenue. Despite a few returns worth $1,348 USD from 18 lines, the overall sales performance was strong.",
+      "human_review": "correct"
+    },
+    {
+      "seed": 25,
+      "source": "model",
+      "attempts": 1,
+      "rejected_numbers": [],
+      "seconds": 36.0,
+      "text": "The total revenue for September 2026 was $272,400 USD from 891 order lines in 399 orders, with 10,076 units sold. This represents a revenue increase of +16.3% compared to August 2026, where revenue reached $234,177 USD. The company has achieved its target of $250,000 USD, reaching 109.0% of it. Region North saw the highest revenue growth, with a +30.1% increase against the previous month, followed by Region West with a +27.3% growth. Despite some regional variations, the overall gross margin was 35.7%, with $97,264 USD in revenue from sales, and there were 16 lines worth $835 USD returned.",
+      "human_review": "wrong: calls the gross margin of 97,264 USD 'revenue from sales'"
+    },
+    {
+      "seed": 26,
+      "source": "model",
+      "attempts": 1,
+      "rejected_numbers": [],
+      "seconds": 29.7,
+      "text": "The total revenue for September 2026 was $277,249 USD from 399 orders, with 9,175 units sold. This represents a decrease of -1.1% compared to August 2026, where revenue was $280,414 USD. The company reached its target of $247,000 USD by 112.2%. Region West generated the highest revenue at $110,519 USD, accounting for 39.9% of the total and exceeding its target by 9.0%. Despite some regional variations, the overall performance was strong, with all categories contributing to the total revenue.",
+      "human_review": "wrong: says West exceeded its target by 9.0% (its change on the previous month)"
+    }
+  ],
+  "human_review": {
+    "reviewed": 6,
+    "wording_correct": 2,
+    "wording_wrong": 4,
+    "note": "Read by hand against the fact sheet during the build. All 6 passed the automatic number check."
+  },
+  "command": "OPENAI_BASE_URL=http://localhost:11434/v1 LLM_MODEL=llama3.2-cpu:latest python -m evals.summary_check --provider openai --months 6"
+}

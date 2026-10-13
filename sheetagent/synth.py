@@ -346,7 +346,7 @@ def _region_spec(region: str) -> MessSpec:
                         order=["order_id", "order_date", "customer", "sku", "quantity", "unit_price", "amount",
                                "Sales rep"])
     if region == "South":
-        return MessSpec(fmt="csv", delimiter=";", encoding="cp1252", date_style="dmy_dot", number_style="eu_space",
+        return MessSpec(fmt="csv", delimiter=";", encoding="cp1252", date_style="dmy_dot", number_style="eu",
                         qty_suffix=True, duplicates=6, bad_rows=2,
                         headers={"order_id": "Invoice #", "order_date": "Date", "customer": "Client",
                                  "sku": "Article", "quantity": "Quantity", "unit_price": "Price",

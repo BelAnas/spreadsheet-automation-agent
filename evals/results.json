@@ -1,5 +1,5 @@
 {
-  "files": 60,
+  "files": 100,
   "provider": "mock",
   "model": "none",
   "model_calls": 0,
@@ -7,46 +7,46 @@
   "output_tokens": 0,
   "cost_usd": null,
   "header_row_accuracy_pct": 100.0,
-  "sheets": 78,
+  "sheets": 136,
   "column_accuracy_seen_pct": 100.0,
-  "columns_seen": 302,
-  "column_accuracy_unseen_pct": 72.6,
-  "columns_unseen": 234,
+  "columns_seen": 569,
+  "column_accuracy_unseen_pct": 75.1,
+  "columns_unseen": 354,
   "junk_columns_left_alone_pct": 100.0,
-  "columns_junk": 84,
+  "columns_junk": 128,
   "accuracy_by_method_pct": {
     "arithmetic": {
       "correct_pct": 100.0,
-      "columns": 55
+      "columns": 62
     },
     "name": {
       "correct_pct": 100.0,
-      "columns": 302
+      "columns": 569
     },
     "profile": {
       "correct_pct": 100.0,
-      "columns": 104
+      "columns": 180
     },
     "similar name": {
       "correct_pct": 100.0,
-      "columns": 11
+      "columns": 24
     }
   },
   "row_recovery_pct": 100.0,
-  "row_precision_pct": 98.4,
-  "files_fully_correct": 44,
+  "row_precision_pct": 98.9,
+  "files_fully_correct": 81,
   "files_not_readable": 0,
-  "mean_revenue_error_pct": 1.33,
+  "mean_revenue_error_pct": 1.2,
   "region_accuracy_pct": 100.0,
   "bad_rows_caught_pct": 100.0,
-  "bad_rows": 121,
+  "bad_rows": 242,
   "good_rows_wrongly_rejected": 0,
   "duplicates_removed_pct": 100.0,
-  "duplicates": 131,
+  "duplicates": 168,
   "baseline_row_recovery_pct": 0.0,
   "baseline_files_fully_correct": 0,
   "baseline_mean_revenue_error_pct": 100.0,
-  "seconds_per_file": 0.209,
+  "seconds_per_file": 0.185,
   "failures": [],
-  "command": "python -m evals.run --files 60 --seed 11"
+  "command": "python -m evals.run --files 100 --seed 4242"
 }

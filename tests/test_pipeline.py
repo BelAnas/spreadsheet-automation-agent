@@ -149,3 +149,23 @@ def test_openai_provider_without_key_is_explained(tmp_path, monkeypatch, capsys)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     assert main(["run", str(tmp_path), "--provider", "openai", "--out", str(tmp_path / "o")]) == 2
     assert "OPENAI_API_KEY" in capsys.readouterr().err
+
+
+def test_mixed_currencies_are_flagged_not_converted(tmp_path):
+    (tmp_path / "a.csv").write_text("Date,SKU,Qty,Amount\n2026-09-01,HT-0101,1,$10.00\n2026-09-02,HT-0102,2,$20.00\n")
+    (tmp_path / "b.csv").write_text("Date;SKU;Qty;Amount\n2026-09-01;HT-0101;1;10,00 €\n2026-09-02;HT-0102;2;20,00 €\n")
+    run = Agent().clean([tmp_path], "2026-09")
+    assert run.sales["amount"].sum() == 60.0
+    assert any("different currency marks" in w for w in run.warnings)
+
+
+def test_template_writes_the_summary_unless_the_model_is_asked_for(demo):
+    root, _ = demo
+    inputs = [root / "inbox" / "2026-09", root / "reference"]
+    text = ("September 2026 brought revenue of 253,055 USD across the 3 regions, a good month for the company "
+            "with North in the lead.")
+    quiet = ScriptedLLM(rule=lambda prompt: text if "Facts:" in prompt else "none")
+    default = Agent(quiet).report(Agent(quiet).clean(inputs, "2026-09"), {})
+    assert default.summary.source == "template" and not any("Facts:" in p for p in quiet.prompts)
+    asked = Agent(quiet, summary_writer="model")
+    assert asked.report(asked.clean(inputs, "2026-09"), {}).summary.source == "model"

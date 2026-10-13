@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -17,10 +18,11 @@ def _print_step(step: str, detail: str) -> None:
 
 def run_report(inputs: list[str], period: str | None, out: Path, provider: str | None = None,
                model: str | None = None, title: str = "Monthly sales report", currency: str = "USD",
-               plotly: str = "inline", quiet: bool = False) -> Run:
+               plotly: str = "inline", quiet: bool = False, summary: str | None = None) -> Run:
     """One full run: clean, measure, write, publish, and remember the month for the next comparison."""
     agent = Agent(make_llm(provider, model), memory_path=out / "mapping_memory.json", currency=currency,
-                  on_step=None if quiet else _print_step)
+                  on_step=None if quiet else _print_step,
+                  summary_writer=summary or os.environ.get("SUMMARY_WRITER") or "template")
     history_path = out / "history.json"
     history = metrics.load_history(history_path)
     run = agent.report(agent.clean(list(inputs), period), history)
@@ -49,6 +51,8 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--out", type=Path, default=Path("reports"), help="folder for the reports (default: reports)")
         p.add_argument("--provider", choices=["mock", "openai"], help="language model provider (default: LLM_PROVIDER or mock)")
         p.add_argument("--model", help="model name (default: LLM_MODEL or gpt-4o-mini)")
+        p.add_argument("--summary", choices=["template", "model"],
+                       help="who writes the summary paragraph (default: SUMMARY_WRITER or template)")
         p.add_argument("--plotly", choices=["inline", "cdn"], default="inline",
                        help="inline: one self-contained page of about 5 MB; cdn: small page that needs internet for the charts")
 
@@ -86,12 +90,13 @@ def main(argv: list[str] | None = None) -> int:
             for period in synth.DEMO_PERIODS:
                 print(f"\n{metrics.period_label(period)}")
                 result = run_report([str(args.data / "inbox" / period), str(args.data / "reference")], period, args.out,
-                                    args.provider, args.model, "Cedar & Stone - monthly sales report", plotly=args.plotly)
+                                    args.provider, args.model, "Cedar & Stone - monthly sales report", plotly=args.plotly,
+                                    summary=args.summary)
                 _report_tail(result)
             return 0
         print(f"\nBuilding the report from {len(args.inputs)} input(s)")
         result = run_report(args.inputs, args.period, args.out, args.provider, args.model, args.title, args.currency,
-                            args.plotly)
+                            args.plotly, summary=args.summary)
     except ValueError as exc:  # configuration mistakes, explained without a stack trace
         print(f"Error: {exc}", file=sys.stderr)
         return 2

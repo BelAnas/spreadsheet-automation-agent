@@ -1,0 +1,52 @@
+{
+  "files": 30,
+  "provider": "mock",
+  "model": "none",
+  "model_calls": 0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "cost_usd": null,
+  "header_row_accuracy_pct": 100.0,
+  "sheets": 40,
+  "column_accuracy_seen_pct": 100.0,
+  "columns_seen": 154,
+  "column_accuracy_unseen_pct": 68.4,
+  "columns_unseen": 114,
+  "junk_columns_left_alone_pct": 100.0,
+  "columns_junk": 45,
+  "accuracy_by_method_pct": {
+    "arithmetic": {
+      "correct_pct": 100.0,
+      "columns": 18
+    },
+    "name": {
+      "correct_pct": 100.0,
+      "columns": 154
+    },
+    "profile": {
+      "correct_pct": 100.0,
+      "columns": 53
+    },
+    "similar name": {
+      "correct_pct": 100.0,
+      "columns": 7
+    }
+  },
+  "row_recovery_pct": 100.0,
+  "row_precision_pct": 97.9,
+  "files_fully_correct": 19,
+  "files_not_readable": 0,
+  "mean_revenue_error_pct": 1.38,
+  "region_accuracy_pct": 100.0,
+  "bad_rows_caught_pct": 100.0,
+  "bad_rows": 67,
+  "good_rows_wrongly_rejected": 0,
+  "duplicates_removed_pct": 100.0,
+  "duplicates": 41,
+  "baseline_row_recovery_pct": 0.0,
+  "baseline_files_fully_correct": 0,
+  "baseline_mean_revenue_error_pct": 100.0,
+  "seconds_per_file": 0.182,
+  "failures": [],
+  "command": "python -m evals.run --files 30 --seed 5151"
+}

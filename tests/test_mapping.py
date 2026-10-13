@@ -141,3 +141,13 @@ def test_role_detection():
     assert detect_role(targets, ctx).role == "targets"
     assert detect_role(sales({"order_date": "Date", "sku": "SKU", "amount": "Amount"}), ctx).role == "sales"
     assert detect_role(notes, ctx) is None
+
+
+def test_model_cannot_turn_an_unrelated_column_into_the_region():
+    df = sales({"order_date": "Date", "sku": "SKU", "quantity": "Qty", "amount": "Amount"},
+               extra={"Warehouse": ["W1", "W2", "W3"]})
+    llm = ScriptedLLM(rule=lambda prompt: "region")
+    known = MappingContext(llm=llm, regions={"north", "south"})
+    assert fields(map_columns(df, SALES, known))["Warehouse"] == (None, "")
+    # With no list of regions to check against, the model's answer is the best information there is.
+    assert fields(map_columns(df, SALES, MappingContext(llm=llm)))["Warehouse"] == ("region", "model")

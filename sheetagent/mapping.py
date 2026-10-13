@@ -223,6 +223,10 @@ def map_columns(df: pd.DataFrame, schema: Schema, ctx: MappingContext, use_model
         p = profiles[column]
         if f.name == "quantity" and method not in ("name", "memory") and p["integer"] < 0.98 * p["number"]:
             return False
+        # The model once labelled a warehouse column (W1, W2) as the region, which moved every sale of the
+        # file to a region that does not exist. When the regions are known, its answer must contain them.
+        if f.name == "region" and method == "model" and ctx.regions and p["region"] < 0.5:
+            return False
         assigned[f.name] = ColumnMatch(column, f.name, method, round(confidence, 2), note)
         taken.add(column)
         return True

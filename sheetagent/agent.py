@@ -49,8 +49,11 @@ class Run:
 
 class Agent:
     def __init__(self, llm=None, memory_path: Path | None = None, currency: str = "USD",
-                 on_step: Callable[[str, str], None] | None = None) -> None:
+                 on_step: Callable[[str, str], None] | None = None, summary_writer: str = "template") -> None:
         self.llm = llm or MockLLM()
+        # The template is the default even when a model is configured: see the decision record on the
+        # summary. A model-written summary has to be asked for.
+        self.summary_writer = summary_writer
         self.memory_path = memory_path
         self.currency = currency
         self.on_step = on_step
@@ -169,10 +172,11 @@ class Agent:
             if column:
                 regions = sorted(set(regions) | {str(v).strip().title() for v in table.df[column] if not is_blank(v)})
         index = ProductIndex(run.products) if run.products is not None else None
-        parts = []
+        parts, currencies = [], set()
         for table, mapping in sales_tables:
             result = clean_sales(table, mapping, index, regions, period)
             parts.append(result.rows)
+            currencies |= result.currencies
             run.rejected += result.rejected
             run.audit += result.audit
         sales = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=SALES_COLUMNS)
@@ -180,6 +184,9 @@ class Agent:
                       or "computed" in a["action"] or "normalised" in a["action"] or "repaired" in a["action"]))
         self._step(run, "Clean the values", f"{len(sales)} sales lines typed, {repairs} cell repairs, "
                    f"{len(run.rejected)} rows set aside")
+        if len(currencies) > 1:
+            run.warnings.append(f"The files carry different currency marks ({', '.join(sorted(currencies))}): amounts are "
+                                "added as written, no conversion is done.")
         if index is None and len(sales):
             run.warnings.append("No product list found: product codes were not checked, and there is no category or margin.")
 
@@ -233,7 +240,7 @@ class Agent:
                    f"{len(facts['regions'])} regions, {len(facts['categories'])} categories"
                    + (f"; {facts['change']['revenue_pct']:+.1f}% on {facts['previous']['label']}" if facts["previous"] else
                       "; no previous month on file"))
-        run.summary = write_summary(facts, self.llm)
+        run.summary = write_summary(facts, self.llm if self.summary_writer == "model" else None)
         self._step(run, "Write", f"summary from the {run.summary.source}"
                    + (f"; numbers not on the fact sheet: {', '.join(run.summary.rejected_numbers)}"
                       if run.summary.rejected_numbers else ""))

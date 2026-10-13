@@ -8,87 +8,169 @@
   "status": "building",
   "started": "2026-10-13",
   "finished": "",
-  "pitch": "Every month somebody on your team opens five spreadsheets from five people, fixes the headers, the dates and the product codes by hand, pastes them together and writes the same report. I built an agent that does that work in a few seconds: you drop the files in a folder, and it gives back an Excel report with charts, a web page, a written summary, a list of every row it could not use and a log of every fix it made. The numbers are computed by code, never by the language model, so the report is the same every time you run it.",
+  "pitch": "Every month somebody on your team opens five spreadsheets from five people, fixes the headers, the dates and the product codes by hand, pastes them together and writes the same report. I built an agent that does that work in about a second: you drop the files in a folder, and it gives back an Excel report with charts, a web page, a written summary, a list of every row it could not use and a log of every fix it made. The numbers are computed by code, never by the language model, so the same files always give the same report. On 100 test files spoiled at random it recovered every order line, where a standard script recovered none.",
   "problem": "Small and mid-sized companies run on spreadsheets that different people export in different shapes: title rows above the header, different column names, dates and prices typed in three formats, product codes with typos, totals rows and duplicates. Building the monthly report means hours of manual cleaning, and nobody can say afterwards which rows were changed or left out.",
-  "solution": "A Python pipeline with a language model in two small, checked roles. Code finds the header row, maps each column to a standard field, parses dates, numbers and product codes, joins the sales files to the product list and the targets, sets aside the rows it cannot trust, computes the figures and builds an Excel report and a web report. The language model is asked only two things: what a column means when the rules cannot tell, and to write the summary paragraph from figures that are already computed. Both answers are checked by code before they are used, and the report works without any model at all.",
+  "solution": "A Python pipeline with a language model in two small, checked roles. Code finds the header row, maps each column to a standard field, parses dates, numbers and product codes, joins the sales files to the product list and the targets, sets aside the rows it cannot trust, computes the figures and builds an Excel report and a web report. The language model is asked only what a column means when the rules cannot tell, and its answer is used only if the values in the column fit. It can also write the summary paragraph, with every number checked against the computed figures, but the template writes it by default because the test showed a small model attaching correct numbers to wrong statements. The report works with no model at all.",
   "features": [
-    "Reads .xlsx workbooks (every sheet), .csv files with any common delimiter and encoding, and Google Sheets by link",
-    "Finds the real header row under title banners and skips totals rows, repeated headers, blank rows and note lines",
-    "Maps differently named columns to one standard schema with rules first and a language model only for the leftovers",
+    "Reads .xlsx workbooks (every visible sheet), .csv files with any common delimiter and encoding, and Google Sheets by link",
+    "Finds the real header row under title banners and leaves out totals rows, repeated headers, blank rows and note lines",
+    "Maps differently named columns to one standard schema with five methods: memory of earlier runs, name, arithmetic, value profile, and the language model for leftovers",
+    "Tells a unit price from a line total by how the values behave per product, even when the header is misleading",
     "Parses dates, prices and quantities written in several national formats and decides day-first or month-first per column",
-    "Repairs product codes against the product list and reports the ones it cannot match",
-    "Sets aside unusable rows with the reason and the original row number instead of dropping them silently",
-    "Compares the month with the previous month and with the targets",
-    "Produces an Excel workbook with native charts, a web report with interactive charts, and a written summary",
-    "Checks every number in the written summary against the computed figures and falls back to a template if one does not match",
-    "Runs from one command, on a schedule, or from a small upload page"
+    "Repairs product codes against the product list (case, spaces, separators, O typed for 0) and reports the ones it cannot match",
+    "Sets aside unusable rows with the file, the row number, the reason and the original content instead of dropping them silently",
+    "Removes lines exported twice, and warns when a file has no order numbers to detect them",
+    "Compares the month with the previous month and with the targets per region",
+    "Produces an Excel workbook with nine sheets and three native charts, a self-contained web report with interactive charts, and a summary ready for email",
+    "Checks every number in a model-written summary against the computed figures and falls back to the template",
+    "Remembers what the model decided about a column name, so it is asked once and a person can correct it",
+    "Runs from one command, from cron, or from a small upload page"
   ],
   "stack": [
     {
       "name": "pandas",
       "role": "Holds the tables, joins them and computes every figure in the report.",
-      "why": "It is the standard tool for tabular data in Python and any data engineer can maintain it."
+      "why": "It is the standard tool for tabular data in Python, so any data engineer can maintain the project. A database was not needed for files of this size."
     },
     {
       "name": "openpyxl",
       "role": "Reads Excel workbooks cell by cell and writes the Excel report with native charts.",
-      "why": "Reading cell by cell lets the agent see title rows and totals rows that a default table reader would mix into the data."
+      "why": "Reading cell by cell lets the agent see title rows and totals rows that pandas.read_excel would mix into the data. Native charts stay editable in Excel, unlike pasted images."
     },
     {
       "name": "Plotly",
-      "role": "Draws the interactive charts in the web report.",
-      "why": "The charts work in any browser with no server, and the reader can hover to see exact values."
+      "role": "Draws the three interactive charts of the web report, in a light and a dark version.",
+      "why": "The charts work in any browser from a single file with no server, and the reader can hover to see exact values. Matplotlib would give static images only."
     },
     {
-      "name": "OpenAI API (optional)",
-      "role": "Names the columns the rules cannot identify and writes the summary paragraph.",
-      "why": "The client is OpenAI-compatible, so the same code runs on OpenAI, Azure OpenAI or a local model through Ollama."
+      "name": "Jinja2",
+      "role": "Fills the web report template and escapes any text that comes from the files.",
+      "why": "Automatic escaping prevents a cell containing HTML from breaking or hijacking the report page."
     },
     {
-      "name": "FastAPI",
-      "role": "Serves the upload page and the run endpoint.",
-      "why": "It is small, typed and documents its own API."
+      "name": "OpenAI API client (optional)",
+      "role": "Asks a language model what a leftover column means, and optionally to write the summary.",
+      "why": "The client is OpenAI-compatible, so the same code runs on OpenAI, Azure OpenAI or a local model through Ollama. The default provider is a mock that needs no key."
+    },
+    {
+      "name": "FastAPI + Uvicorn",
+      "role": "Serve the upload page and the run endpoint.",
+      "why": "Small, typed, and it validates uploads and documents its own API. Flask would need more code for the same checks."
     },
     {
       "name": "pytest",
-      "role": "Tests every cleaning rule and the whole pipeline offline.",
-      "why": "The tests run with no key and no network, so anyone can check the project."
+      "role": "118 offline tests for every parser, every mapping method, the guardrails and the whole pipeline.",
+      "why": "The tests run with no key and no network, so a client or reviewer can check the project in half a minute."
     }
   ],
-  "keywords": [],
-  "topics": [],
+  "keywords": [
+    "excel automation",
+    "spreadsheet automation",
+    "automated reporting",
+    "monthly report",
+    "recurring report",
+    "google sheets",
+    "csv cleaning",
+    "data cleaning",
+    "data wrangling",
+    "messy data",
+    "pandas",
+    "openpyxl",
+    "excel report with charts",
+    "kpi report",
+    "sales report",
+    "management report",
+    "dashboard",
+    "power bi alternative",
+    "tableau alternative",
+    "looker",
+    "etl",
+    "data pipeline",
+    "column mapping",
+    "schema mapping",
+    "header detection",
+    "data quality",
+    "data validation",
+    "deduplication",
+    "audit trail",
+    "date parsing",
+    "number formats",
+    "decimal comma",
+    "sku matching",
+    "product code matching",
+    "fuzzy matching",
+    "merge excel files",
+    "consolidate spreadsheets",
+    "join spreadsheets",
+    "vlookup automation",
+    "month over month",
+    "target vs actual",
+    "llm agent",
+    "ai agent",
+    "openai",
+    "ollama",
+    "local llm",
+    "guardrails",
+    "hallucination check",
+    "number grounding",
+    "plotly",
+    "fastapi",
+    "python script",
+    "cron job",
+    "report generation",
+    "executive summary",
+    "reconciliation"
+  ],
+  "topics": [
+    "excel-automation",
+    "spreadsheet",
+    "data-cleaning",
+    "automated-reporting",
+    "pandas",
+    "openpyxl",
+    "plotly",
+    "llm-agent",
+    "openai",
+    "ollama",
+    "google-sheets",
+    "etl",
+    "data-quality",
+    "fastapi",
+    "python",
+    "guardrails"
+  ],
   "workflow": [
     {
       "step": "Collect",
-      "detail": "The agent lists the files in the inbox folder and downloads any Google Sheets links as CSV."
+      "detail": "The agent lists the spreadsheet files in the given folders and downloads any Google Sheets link as CSV. A file that cannot be opened is reported and the run continues with the others."
     },
     {
       "step": "Find the table",
-      "detail": "For each sheet it finds the header row, then removes banners, blank rows, repeated headers, totals rows and note lines, and logs each removal."
+      "detail": "Each sheet is read as raw cells. The header is the first wide row made only of labels with data under it. Banners above it, blank rows, repeated headers, totals rows and note lines are left out, and their row numbers are logged."
     },
     {
       "step": "Map the columns",
-      "detail": "Each column is matched to a standard field by name and by what its values look like. Columns the rules cannot place are sent to the language model, and its answer is accepted only if the values fit the field."
+      "detail": "The product list and the targets are recognised first, because their codes and region names help to read the sales files. Each sales column is then matched to a standard field by memory, by name, by arithmetic (amount = quantity x price), by what its values look like, and last by the language model. Whatever the method, the values must fit the field."
     },
     {
       "step": "Clean the values",
-      "detail": "Dates, numbers and product codes are converted to one format. Rows that cannot be converted are set aside with a reason."
+      "detail": "The date order and the decimal mark are decided once per column from all its values. Dates, numbers and product codes are converted; a missing total, price or quantity is computed from the other two. Rows without a code, a readable date or a usable amount are set aside with the reason."
     },
     {
       "step": "Join",
-      "detail": "Sales rows from all files are stacked, duplicates are removed, and each row is joined to the product list and the regional targets."
+      "detail": "Sales lines from all files are stacked, lines exported twice are removed, lines outside the report month are set aside, and each line gets its product name, category and cost from the product list."
     },
     {
       "step": "Measure",
-      "detail": "Revenue, units, orders, margin, returns, the split by region and category, the best products and the change against the previous month are computed with pandas."
+      "detail": "pandas computes revenue, units, orders, average order, margin and returns, the split by region and by category, the top products, the daily trend, the share of each target reached and the change on the previous month taken from the history file."
     },
     {
       "step": "Write",
-      "detail": "The language model writes a short summary from the computed figures. Code checks every number in it; if one is not in the figures the template summary is used."
+      "detail": "The figures are turned into a fact sheet. The template writes the summary from it. If the model is asked to write it, code checks every number in its text against the fact sheet, gives it one retry, and otherwise uses the template."
     },
     {
       "step": "Publish",
-      "detail": "The agent writes the Excel report, the web report, the summary text and a run log, and saves the month's figures for next month's comparison."
+      "detail": "The agent writes the Excel workbook, the web page, the summary text and the run log into a folder for the month, and saves the month's headline figures for next month's comparison."
     }
   ],
   "phases": [
@@ -231,47 +313,595 @@
     {
       "name": "Verification and docs",
       "goal": "Everything is tested, measured, and explained.",
-      "status": "todo",
+      "status": "done",
       "steps": [
         {
           "text": "Full pytest run, offline",
-          "done": false
+          "done": true
         },
         {
           "text": "Fresh-clone run of the quick start",
-          "done": false
+          "done": true
         },
         {
           "text": "Real-model check (OpenAI if a key is present, otherwise a local model through the same client)",
-          "done": false
+          "done": true
         },
         {
           "text": "README with diagram, real output, screenshot and results table",
-          "done": false
+          "done": true
         },
         {
           "text": "Complete the dashboard entry: decisions, client questions, concepts, limits",
-          "done": false
+          "done": true
         },
         {
           "text": "Secret scan and final commit",
-          "done": false
+          "done": true
         }
       ],
-      "outcome": ""
+      "outcome": "118 tests pass offline. A fresh clone installed from requirements.txt runs the demo and the tests. The final benchmark on an unseen seed recovers 100% of order lines on 100 files. The OpenAI check is pending because the key was empty; the same client code was run on a local model instead, which showed that the model is useful for naming columns (19 to 30 perfect files out of 30) and unreliable for writing the summary (4 of 6 wrong in wording), so the template became the default writer. README, license and this dashboard entry are complete."
     }
   ],
-  "decisions": [],
-  "results": [],
-  "client_qa": [],
-  "concepts": [],
-  "limits": [],
-  "run": [],
-  "files": [],
+  "decisions": [
+    {
+      "title": "A fixed plan of steps, not a free tool-calling agent",
+      "chosen": "The agent always runs the same eight steps in the same order. The judgement calls happen inside the steps and are written to a trace.",
+      "why": "A monthly report must be reproducible: the same files must give the same numbers, and a manager must be able to see why a row was left out. A fixed plan gives that, and it is testable step by step.",
+      "alternatives": [
+        {
+          "option": "Let a language model decide which tool to call next (ReAct-style agent)",
+          "why_not": "The result can change between runs, each run costs many model calls, and an earlier build showed the small local model calling tools on every request. For a recurring report that is risk with no benefit."
+        },
+        {
+          "option": "Ask the model to write pandas code for each file",
+          "why_not": "Running generated code on business files needs a sandbox, and a wrong line of code produces wrong totals that look right."
+        }
+      ],
+      "at_scale": "With dozens of report types I would keep the fixed steps and move the per-client knowledge (schemas, aliases, checks) into configuration, and add a review queue for the decisions the agent is unsure about."
+    },
+    {
+      "title": "Rules first, the model only for leftover columns",
+      "chosen": "Columns are mapped by memory, name, arithmetic and value profile. The model is asked only about columns that none of these can place, with the header and five sample values.",
+      "why": "On 100 benchmark files the rules alone placed every column they attempted correctly and cost nothing. The model then lifted never-seen column names from 68.4% to 93.9% on a 30-file sample, at 47 short calls.",
+      "alternatives": [
+        {
+          "option": "Send every header to the model",
+          "why_not": "It is slower (about 12 seconds per file on the local model instead of 0.2), costs money on every run, and the model was wrong on about one column in ten, which the rules never were."
+        },
+        {
+          "option": "Rules only, no model",
+          "why_not": "A quarter of never-seen column names stay unread, mostly the order number, and then duplicate lines cannot be detected."
+        }
+      ],
+      "at_scale": "I would log every model decision for a person to confirm once, and promote confirmed names into the alias list so the model is needed less each month."
+    },
+    {
+      "title": "Every model answer about a column is checked against the values",
+      "chosen": "A column is accepted for a field only if its values fit: dates must parse as dates, a quantity proposed by anything weaker than an exact header must be whole numbers, a region proposed by the model must contain known regions.",
+      "why": "The live check caught the model labelling a warehouse column (W1, W2) as the region in 3 of 30 files, which moved sales to a region that does not exist. With the value check that answer is refused.",
+      "alternatives": [
+        {
+          "option": "Trust the model's label",
+          "why_not": "One wrong label silently changes a regional total."
+        },
+        {
+          "option": "Ask the model for a confidence score and use a threshold",
+          "why_not": "Small models report high confidence on wrong answers; a check on the data is evidence, a self-reported score is not."
+        }
+      ],
+      "at_scale": "More fields would get their own value checks (customer names against the CRM, order numbers against the ERP)."
+    },
+    {
+      "title": "Tell a price from a total by behaviour, not by the header",
+      "chosen": "When quantity, price and total are all present, the relation amount = quantity x price decides which column is which. When only one money column is present, the agent checks whether its values stay stable per product (a unit price) or scale with the quantity (a line total).",
+      "why": "Headers lie: 'Ext. Price' looks like a price and is a line total. The benchmark found this defect, and the behaviour test fixed it without adding the name to a list.",
+      "alternatives": [
+        {
+          "option": "Keep extending the list of known header names",
+          "why_not": "It never ends, and it cannot be measured honestly, because the test names would be the ones in the list."
+        },
+        {
+          "option": "Ask the model",
+          "why_not": "The data already contains the answer, for free and with certainty."
+        }
+      ],
+      "at_scale": "The same idea extends to tax, discount and freight columns, each with its own arithmetic relation."
+    },
+    {
+      "title": "The template writes the summary by default, the model only on request",
+      "chosen": "The summary paragraph comes from a template filled with computed figures. '--summary model' lets the model write it; code then checks every number against the fact sheet, allows one retry, and falls back to the template.",
+      "why": "All 6 summaries written by the local model passed the number check, yet 4 of the 6 said something false when I read them, such as calling growth on last month a margin over target. A number check cannot see that, so the safe default is the template.",
+      "alternatives": [
+        {
+          "option": "Model-written summary by default, guarded by the number check",
+          "why_not": "Measured in this build: the guard passes text that is wrong in meaning."
+        },
+        {
+          "option": "No model summary at all",
+          "why_not": "A stronger model may write well, and some clients want a more natural text. Keeping it as a labelled option lets them try it knowingly."
+        }
+      ],
+      "at_scale": "I would test a stronger model on the same six cases, and add a second check that ties each number to the kind of fact it came from before making it the default."
+    },
+    {
+      "title": "Set rows aside with a reason instead of guessing or dropping",
+      "chosen": "A row with no product code, an unreadable date or no usable amount goes to a 'Rejected rows' sheet with its file, row number, reason and original content. Sales of a product missing from the product list are kept in the totals under their own label.",
+      "why": "A report that silently drops rows cannot be trusted, and one that guesses values is worse. The person who owns the source file can fix the 16 listed rows in a minute.",
+      "alternatives": [
+        {
+          "option": "Drop bad rows silently, as pandas does with errors='coerce'",
+          "why_not": "Revenue disappears and nobody knows why the total differs from the ERP."
+        },
+        {
+          "option": "Fill missing values with a guess (last date seen, average price)",
+          "why_not": "It invents sales data."
+        }
+      ],
+      "at_scale": "The rejected rows would go back to each branch automatically as a short correction list."
+    },
+    {
+      "title": "Decide date order and decimal mark per column",
+      "chosen": "The agent looks at all values of a column: a day above 12 settles day-first or month-first; if no value settles it, the reading that puts the dates inside the report month wins. Decimal comma or point is decided by majority.",
+      "why": "'03/04/2026' and '1.234' cannot be read alone. Reading each cell separately, as pandas does by default, mixes two interpretations in one column.",
+      "alternatives": [
+        {
+          "option": "pandas.to_datetime and to_numeric with defaults",
+          "why_not": "This is the naive baseline, which recovered 0% of the benchmark rows."
+        },
+        {
+          "option": "Ask the user for the format of each file",
+          "why_not": "That is the manual work the tool is meant to remove; the choice is logged instead, so it can be reviewed."
+        }
+      ],
+      "at_scale": "The format decided for a source would be stored and reused, with an alert when a source suddenly changes format."
+    },
+    {
+      "title": "Native Excel charts and a single-file web page",
+      "chosen": "The workbook contains real Excel charts linked to its data sheets; the web report is one HTML file with the chart library inside.",
+      "why": "Managers forward reports by email and edit them in Excel. Native charts stay editable, and a single file opens anywhere, offline.",
+      "alternatives": [
+        {
+          "option": "A hosted dashboard (Power BI, Looker, Streamlit)",
+          "why_not": "It needs licences, hosting and logins. It is the right next step for some clients, and the clean data sheet is ready to feed it."
+        },
+        {
+          "option": "Chart images pasted into Excel",
+          "why_not": "They cannot be edited and do not follow the data if a figure is corrected."
+        }
+      ],
+      "at_scale": "The clean rows would also be loaded into a warehouse table, so a BI tool can sit on top while the emailed report stays."
+    },
+    {
+      "title": "Tune on some seeds, report on one never seen",
+      "chosen": "The rules were fixed using benchmark seeds 11 and 2026. The published result uses seed 4242, and the model comparison uses seed 5151, neither of which was looked at before.",
+      "why": "Fixing a rule and then reporting on the same files measures memory, not ability. The first seeds exposed four defects; the unseen seed showed whether the fixes generalise.",
+      "alternatives": [
+        {
+          "option": "Report the score on the files used for tuning",
+          "why_not": "It would be an inflated number."
+        },
+        {
+          "option": "Use real company spreadsheets as the test",
+          "why_not": "Client data must not be used, and real files have no known correct answer to score against."
+        }
+      ],
+      "at_scale": "Each client project would start by collecting a few months of their real files, hand-checking the totals once, and keeping them as a regression set."
+    }
+  ],
+  "results": [
+    {
+      "metric": "Order lines recovered with every value exact, 100 randomly spoiled files (unseen seed)",
+      "value": "100% (naive pandas baseline: 0.0%)",
+      "how": "python -m evals.run --files 100 --seed 4242"
+    },
+    {
+      "metric": "Files recovered with no error at all, rules only",
+      "value": "81 of 100 (baseline: 0 of 100)",
+      "how": "python -m evals.run --files 100 --seed 4242"
+    },
+    {
+      "metric": "Mean revenue error per file, rules only",
+      "value": "1.2% (baseline: 100%)",
+      "how": "python -m evals.run --files 100 --seed 4242"
+    },
+    {
+      "metric": "Header row found",
+      "value": "100% of 136 sheets",
+      "how": "python -m evals.run --files 100 --seed 4242"
+    },
+    {
+      "metric": "Columns with a known name read correctly",
+      "value": "100% of 569",
+      "how": "python -m evals.run --files 100 --seed 4242"
+    },
+    {
+      "metric": "Columns with a never-seen name read correctly, rules only",
+      "value": "75.1% of 354",
+      "how": "python -m evals.run --files 100 --seed 4242"
+    },
+    {
+      "metric": "Irrelevant columns left alone, rules only",
+      "value": "100% of 128",
+      "how": "python -m evals.run --files 100 --seed 4242"
+    },
+    {
+      "metric": "Unusable rows caught / good rows wrongly rejected",
+      "value": "100% of 242 / 0",
+      "how": "python -m evals.run --files 100 --seed 4242"
+    },
+    {
+      "metric": "Duplicate lines removed in files with an order-number column",
+      "value": "100% of 168",
+      "how": "python -m evals.run --files 100 --seed 4242"
+    },
+    {
+      "metric": "Time per file, rules only",
+      "value": "0.185 s",
+      "how": "python -m evals.run --files 100 --seed 4242"
+    },
+    {
+      "metric": "Never-seen column names read correctly: rules only vs rules + local model (30 files)",
+      "value": "68.4% vs 93.9% of 114",
+      "how": "python -m evals.run --files 30 --seed 5151, then the same with --provider openai (OPENAI_BASE_URL=http://localhost:11434/v1, LLM_MODEL=llama3.2-cpu:latest)"
+    },
+    {
+      "metric": "Files with no error at all: rules only vs rules + local model (30 files)",
+      "value": "19 vs 30 of 30",
+      "how": "python -m evals.run --files 30 --seed 5151, then the same with --provider openai"
+    },
+    {
+      "metric": "Columns placed by the local model that were right",
+      "value": "90.6% of 32, in 47 calls (7,048 input and 112 output tokens)",
+      "how": "python -m evals.run --files 30 --seed 5151 --provider openai"
+    },
+    {
+      "metric": "Irrelevant columns left alone with the local model",
+      "value": "93.3% of 45 (3 text columns taken for the customer name)",
+      "how": "python -m evals.run --files 30 --seed 5151 --provider openai"
+    },
+    {
+      "metric": "Model-written summaries that passed the automatic number check",
+      "value": "6 of 6 at the first attempt",
+      "how": "python -m evals.summary_check --provider openai --months 6 (local llama3.2)"
+    },
+    {
+      "metric": "Model-written summaries that were correct when read by hand",
+      "value": "2 of 6 (4 attached a correct number to a wrong statement)",
+      "how": "Manual review of evals/results_summary.json against the fact sheets, recorded in that file"
+    },
+    {
+      "metric": "Demo months recovered exactly",
+      "value": "803 of 803 and 862 of 862 order lines, revenue equal to the truth",
+      "how": "python -m pytest tests/test_pipeline.py"
+    },
+    {
+      "metric": "Demo run time",
+      "value": "about 1.3 s per month on the mock provider; 53 s with the local model writing the summary",
+      "how": "python -m sheetagent demo; python -m sheetagent run data/inbox/2026-09 data/reference --provider openai --summary model"
+    },
+    {
+      "metric": "Tests",
+      "value": "118 passed",
+      "how": "python -m pytest"
+    }
+  ],
+  "client_qa": [
+    {
+      "q": "How much time does this save us?",
+      "a": "The cleaning and assembling that takes a person several hours each month runs in about a second per month of files. What remains for a person is reading the short list of rows the agent set aside, 16 out of 878 in the demo, and fixing them at the source if they matter."
+    },
+    {
+      "q": "Can I trust the numbers?",
+      "a": "Yes, for three reasons. The numbers are computed by ordinary code from the cleaned rows, never by the AI. Nothing is dropped silently: every row left out is listed with its file, row number and reason, and every repair is counted in an audit sheet. And on 100 test files with known correct answers, the tool recovered every order line exactly."
+    },
+    {
+      "q": "Our files change all the time: new columns, renamed headers, a different export. Will it break?",
+      "a": "It is built for that. It does not rely on a column being in a given place or having an exact name. It recognises columns by name, by close spelling, by arithmetic and by what the values look like, and can ask a language model for the rest. In the test, three quarters of column names it had never been told about were read correctly with no AI, and 94% with a small AI model. If it cannot identify what it needs, it says so and skips that table rather than guessing."
+    },
+    {
+      "q": "Do our data leave the company?",
+      "a": "By default nothing leaves: the tool runs with no AI model and no internet connection. If you switch the model on, it is sent only a column header with five sample values, and the computed totals for the summary, never the rows. It can also use a model running on your own server, which is how I tested it."
+    },
+    {
+      "q": "What does it cost to run?",
+      "a": "Without the model, nothing beyond the machine it runs on. With a hosted model the usage is tiny: the test used about 7,000 input tokens for 30 files, which is a fraction of a cent on a small OpenAI model. I have not run it on OpenAI yet, so that figure is an estimate from the token count, not a measured bill."
+    },
+    {
+      "q": "Is this really AI, or just a script? Why not let ChatGPT read the files?",
+      "a": "It is mostly careful code, on purpose. A language model reading 900 rows will sometimes change a number, cannot explain which row it dropped, and gives a slightly different answer each time. So the AI is used where it is strong, understanding what an oddly named column means, and its answer is checked against the data. I also tested letting it write the summary: the text read well, but four out of six contained a false statement. That is why the default summary comes from a template."
+    },
+    {
+      "q": "Can it work with our real report instead of sales by region?",
+      "a": "Yes. The reading, cleaning and auditing parts are general. What is specific is the list of fields (a small file) and the figures of the report. Adapting it to purchases, inventory, timesheets or marketing spend means describing the fields and writing the calculations, typically a few days of work with your real files."
+    },
+    {
+      "q": "Does it work with Google Sheets, and with Power BI or Looker?",
+      "a": "It reads a Google Sheet from its link when the sheet is shared by link; private sheets need a service account, which I would add for a real project. For Power BI, Tableau or Looker, the 'Clean data' sheet is exactly the tidy table those tools need, so the agent can feed them instead of replacing them."
+    },
+    {
+      "q": "How does it know whether 03/04/2026 is the third of April or the fourth of March?",
+      "a": "It looks at the whole column. If any date has a day above 12, the order is settled for the column. If none does, it picks the reading that puts the dates in the month being reported. The choice and its reason are written in the audit log."
+    },
+    {
+      "q": "What happens when a product code is mistyped?",
+      "a": "Codes are compared with the product list after removing differences of case, spaces, separators and leading zeros. A letter O typed for a zero is repaired only if exactly one product matches. A code that still matches nothing is kept in the totals under 'Not in product list' and flagged, because the sale is real even if the product list is behind."
+    },
+    {
+      "q": "How do we run it every month without thinking about it?",
+      "a": "It is one command, so any scheduler can call it. A cron script is included that builds last month's report from a folder named after the month. It keeps each month's headline figures, so the next report shows the change automatically."
+    },
+    {
+      "q": "What are its limits today?",
+      "a": "It expects a header row and one table per sheet, a calendar month as the period, and one currency. It does not read old .xls files or protected workbooks. And the test files, although spoiled in seventeen ways, were generated by me: the first step with a client is to run it on a few months of their real files and check the totals against a report they trust."
+    },
+    {
+      "q": "How did you test it?",
+      "a": "Three ways. There are 118 automated tests, including what happens when a file is broken or the AI is unavailable. A benchmark spoils files at random and compares the result with the known truth, next to a standard script as a baseline; I tuned on some random draws and reported on one I had not seen. And I ran the AI path on a real model and read its output by hand, which is how I found that its summaries could not be trusted."
+    }
+  ],
+  "concepts": [
+    {
+      "term": "Header detection",
+      "plain": "Finding which row of a sheet holds the column titles. Real exports put a title, a date or a company name above it, so the first row cannot be assumed."
+    },
+    {
+      "term": "Schema / standard fields",
+      "plain": "The fixed list of things the report needs from every file: order number, date, product code, quantity, unit price, amount, customer, region. Every file is translated to this list, whatever its own column names are."
+    },
+    {
+      "term": "Column mapping (schema mapping)",
+      "plain": "Deciding which column of a file corresponds to which standard field. 'Qty', 'Pieces' and 'Quantité' all map to quantity."
+    },
+    {
+      "term": "Alias",
+      "plain": "A known spelling of a field name, such as 'Invoice #' for the order number. The rules recognise aliases immediately; other names need the smarter methods."
+    },
+    {
+      "term": "Fuzzy matching",
+      "plain": "Comparing two texts by how similar they are instead of requiring them to be identical. It lets 'Ammount' be recognised as 'Amount'."
+    },
+    {
+      "term": "Value profile",
+      "plain": "A description of what a column contains: what share of its cells are dates, numbers, whole numbers, product codes. A column that is 97% dates is a date column whatever its title says."
+    },
+    {
+      "term": "Arithmetic check",
+      "plain": "Using the relation amount = quantity x unit price to identify columns. If one number column equals the product of two others on nearly every row, the roles of the three are known with certainty."
+    },
+    {
+      "term": "Data cleaning (data wrangling)",
+      "plain": "Turning inconsistent raw data into one consistent format: the same date format, real numbers instead of text like '$1,234.50', the same spelling for each product code."
+    },
+    {
+      "term": "Decimal comma",
+      "plain": "In much of Europe 1.234,50 means one thousand two hundred thirty-four and a half; in the US the same number is written 1,234.50. The tool decides which convention a column uses from all its values."
+    },
+    {
+      "term": "SKU / product code",
+      "plain": "The short code that identifies a product, such as HT-0101. Matching codes across files is how sales lines get their product name, category and cost."
+    },
+    {
+      "term": "Join",
+      "plain": "Combining two tables through a shared key. Here each sales line is joined to the product list through the product code, like a VLOOKUP done for every row at once."
+    },
+    {
+      "term": "Deduplication",
+      "plain": "Removing a line that appears twice because a file was exported or pasted twice. It is done only when an order number proves the two lines are the same sale."
+    },
+    {
+      "term": "Rejected rows (quarantine)",
+      "plain": "Rows that cannot be used safely are set aside in their own sheet with the reason, instead of being deleted or guessed. The owner of the source file can then fix them."
+    },
+    {
+      "term": "Audit trail",
+      "plain": "A record of every change the tool made and every decision it took: which row was the header, how each column was read, how many codes were repaired. It lets anyone verify the report afterwards."
+    },
+    {
+      "term": "KPI",
+      "plain": "Key performance indicator: a headline number a manager follows, such as revenue, number of orders or margin."
+    },
+    {
+      "term": "Gross margin",
+      "plain": "Revenue minus what the goods cost to buy. The tool computes it from the unit cost in the product list."
+    },
+    {
+      "term": "Target attainment",
+      "plain": "Actual revenue divided by the target for the same region and month. 93.8% means the region ended 6.2% short of its goal."
+    },
+    {
+      "term": "Month over month",
+      "plain": "The change of a figure compared with the previous month, in percent."
+    },
+    {
+      "term": "LLM (large language model)",
+      "plain": "The kind of AI behind ChatGPT: it reads and writes text. Here it is used to understand what an unusually named column means."
+    },
+    {
+      "term": "AI agent",
+      "plain": "A program that carries a task through several steps and makes decisions along the way. This one follows a fixed plan and records each decision, which makes its results repeatable."
+    },
+    {
+      "term": "Guardrail",
+      "plain": "A check that code applies to an AI answer before using it. Here: a column label is accepted only if the column's values fit, and a number in the summary only if it exists in the computed figures."
+    },
+    {
+      "term": "Hallucination",
+      "plain": "When a language model states something that is not in the data it was given. The summary test showed a subtle form: real numbers attached to the wrong statement."
+    },
+    {
+      "term": "Number grounding check",
+      "plain": "Reading the model's text back and verifying that each number appears in the facts it was given. It catches invented and rounded figures, but not a correct figure used in a wrong sentence."
+    },
+    {
+      "term": "Mock provider",
+      "plain": "A stand-in for the AI model that needs no key and no internet. It lets anyone run and test the project for free, and shows what the tool does with no AI at all."
+    },
+    {
+      "term": "OpenAI-compatible API",
+      "plain": "A common way of talking to language models that many providers and local tools support. Because the tool uses it, switching from OpenAI to a model on your own server is a setting, not a rewrite."
+    },
+    {
+      "term": "Ollama / local model",
+      "plain": "Software that runs a language model on your own machine, so no data leaves it. It was used here to test the AI path at no cost."
+    },
+    {
+      "term": "Baseline",
+      "plain": "The simple approach a result is compared with, here a standard pandas script. Without a baseline, a score has no meaning."
+    },
+    {
+      "term": "Held-out test (unseen seed)",
+      "plain": "Test cases that were not looked at while building. Reporting on them shows whether the tool handles new files, not only the ones it was tuned on."
+    },
+    {
+      "term": "Synthetic data",
+      "plain": "Data generated by a script instead of taken from a company. It contains no real information, and because the correct answer is known, the cleaning can be scored exactly."
+    },
+    {
+      "term": "ETL",
+      "plain": "Extract, transform, load: reading data from sources, cleaning and reshaping it, and delivering it somewhere useful. This project is a small ETL pipeline whose output is a report."
+    },
+    {
+      "term": "Cron",
+      "plain": "The scheduler built into Linux servers. One line tells it to run the report command on the second day of every month."
+    }
+  ],
+  "limits": [
+    "The schema covers sales lines, a product list and monthly targets. Another kind of report needs its own fields and its own calculations.",
+    "The benchmark files and the cleaning rules were written by the same author. The results show the rules handle the defects the generator knows; real company files will contain others, and that has not been measured.",
+    "No real company spreadsheets were used (client data is not allowed in this portfolio), so the first step of a real project is a check against a report the client already trusts.",
+    "A sheet must have a header row. Tables without headers, two tables side by side on one sheet, and pivot layouts with months as columns are not handled.",
+    "Old .xls files and password-protected workbooks are not read. Formula cells are read as the last value Excel calculated.",
+    "Google Sheets are read through the CSV export link, so the sheet must be shared as 'anyone with the link'. Private sheets need a service account, which is not included. The link reader was tested against a local web server, not against Google.",
+    "No currency conversion: if files carry different currency marks the report warns and adds the amounts as written.",
+    "Duplicate lines are removed only in files with an order-number column. Without the model, a quarter of unfamiliar column names (mostly order numbers) stay unread, which left duplicates in 19 of 100 benchmark files.",
+    "A model-written summary can pass the number check and still be wrong in meaning (4 of 6 on the local model). The template is the default writer for that reason.",
+    "The real-model results come from a small local model (llama3.2, 3B). OpenAI models were not run because the key was empty, so their accuracy and cost here are unknown.",
+    "The model comparison uses 30 files and the summary review 6 cases: enough to see the direction, too few for precise percentages.",
+    "The report period is a calendar month and the comparison is with the previous month only (no year-over-year, no weekly report).",
+    "The upload page has no login and keeps each run separately, so it shows no month-over-month comparison except in the demo. It is meant for use on localhost or behind the client's own access control.",
+    "Quantities under a column whose name is only similar to a known one must be whole numbers; goods sold by weight need an exact header such as 'Quantity' or 'Qty'."
+  ],
+  "run": [
+    "python3 -m venv .venv && source .venv/bin/activate",
+    "pip install -r requirements.txt",
+    "python -m sheetagent demo",
+    "open reports/2026-09/sales_report_2026-09.html and reports/2026-09/sales_report_2026-09.xlsx",
+    "python -m sheetagent run <files, folders or Google Sheets links> --period 2026-09 --out reports",
+    "python -m sheetagent serve   (upload page on http://127.0.0.1:8124)",
+    "pip install -r requirements-dev.txt && python -m pytest",
+    "python -m evals.run --files 100 --seed 4242"
+  ],
+  "files": [
+    {
+      "path": "sheetagent/agent.py",
+      "what": "The agent: runs the eight steps in order and records every decision in a trace."
+    },
+    {
+      "path": "sheetagent/readers.py",
+      "what": "Reads xlsx, csv and links as raw cells, with delimiter and encoding detection."
+    },
+    {
+      "path": "sheetagent/structure.py",
+      "what": "Finds the header row and leaves out banners, totals, repeated headers and notes."
+    },
+    {
+      "path": "sheetagent/schema.py",
+      "what": "The standard fields for sales, products and targets, and the header names the rules know."
+    },
+    {
+      "path": "sheetagent/mapping.py",
+      "what": "The five column-mapping methods, the value checks, the table-type detection and the mapping memory."
+    },
+    {
+      "path": "sheetagent/values.py",
+      "what": "Parsers for dates, numbers, months and product codes, with per-column format decisions."
+    },
+    {
+      "path": "sheetagent/cleaning.py",
+      "what": "Typed rows, code repair, rejected rows with reasons, duplicate removal."
+    },
+    {
+      "path": "sheetagent/metrics.py",
+      "what": "Every figure of the report computed with pandas, and the month history."
+    },
+    {
+      "path": "sheetagent/summary.py",
+      "what": "Fact sheet, template summary, model summary, and the number check."
+    },
+    {
+      "path": "sheetagent/charts.py",
+      "what": "The three Plotly charts in light and dark versions."
+    },
+    {
+      "path": "sheetagent/report.py",
+      "what": "Writes the Excel workbook with native charts, the web page, the summary and the run log."
+    },
+    {
+      "path": "sheetagent/templates/report.html.j2",
+      "what": "The web report template."
+    },
+    {
+      "path": "sheetagent/llm.py",
+      "what": "The mock provider and the OpenAI-compatible provider with token and cost counting."
+    },
+    {
+      "path": "sheetagent/synth.py",
+      "what": "Generates the fictional demo data with its truth, and spoils files in seventeen ways."
+    },
+    {
+      "path": "sheetagent/cli.py",
+      "what": "The commands: demo, run, make-data, serve."
+    },
+    {
+      "path": "sheetagent/web.py",
+      "what": "The upload page and its API."
+    },
+    {
+      "path": "evals/run.py",
+      "what": "The benchmark: random messy files scored against the truth, with the baseline."
+    },
+    {
+      "path": "evals/baseline.py",
+      "what": "The naive pandas baseline."
+    },
+    {
+      "path": "evals/scoring.py",
+      "what": "Row recovery, precision and revenue error."
+    },
+    {
+      "path": "evals/summary_check.py",
+      "what": "Runs model-written summaries through the number check."
+    },
+    {
+      "path": "evals/results.json",
+      "what": "Final benchmark results, 100 files, rules only."
+    },
+    {
+      "path": "evals/results_30_rules.json, evals/results_30_local_model.json",
+      "what": "The paired comparison with and without the local model."
+    },
+    {
+      "path": "evals/results_summary.json",
+      "what": "The six model-written summaries with the manual review of each."
+    },
+    {
+      "path": "scripts/monthly_report.sh",
+      "what": "Cron script that builds last month's report."
+    },
+    {
+      "path": "tests/",
+      "what": "118 offline tests."
+    },
+    {
+      "path": "docs/report.png",
+      "what": "Screenshot of the web report built from the demo files."
+    }
+  ],
   "verification": {
-    "tests": "",
+    "tests": "118 passed (python -m pytest, offline, no key)",
     "live_llm": "pending",
     "cost_usd": 0,
-    "notes": ""
+    "notes": "The OpenAI live check is pending: OPENAI_API_KEY in /var/www/AB/github-projects/.env was empty during the build, so no request was sent and nothing was spent. The real-model path (the same OpenAI-compatible client) was run at no cost on local llama3.2 (3B) through Ollama. Column naming: on 30 files of an unseen seed, never-seen column names read correctly rose from 68.4% to 93.9%, and files with no error from 19 to 30 of 30, in 47 calls (7,048 input and 112 output tokens). A first run on another seed found a real defect: the model labelled a warehouse column as the region in 3 of 30 files; a value check now refuses that, and a test covers it. Summary writing: 6 of 6 model summaries passed the automatic number check, but read by hand only 2 of 6 were correct; the template was therefore made the default writer and the model summary an option that is labelled for review. End to end through the command line on the local model: 3 calls, 53 seconds, report produced. Also verified: the benchmark found four defects in the rules, all fixed, and the final numbers come from a seed not used for tuning; a fresh clone installed from requirements.txt ran the demo and passed the tests; the upload page was run in a real browser (headless Chrome) and returned the demo report; the Excel workbook was opened with LibreOffice and its charts rendered; the cron script built a report. Not verified: reading a live Google Sheet (the link reader was tested against a local web server). To finish the pending check: put a key in .env and run `LLM_PROVIDER=openai python -m evals.run --files 30 --seed 5151 --provider openai` and `python -m evals.summary_check --provider openai --months 6` (estimated at under one cent on gpt-4o-mini from the token counts above)."
   }
 }

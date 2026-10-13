@@ -12,7 +12,7 @@ import pandas as pd
 
 from .mapping import Mapping
 from .structure import Table
-from .values import (decimal_mark, infer_dayfirst, is_blank, parse_date, parse_month, parse_number, sku_confusable,
+from .values import (CURRENCY_MARK, decimal_mark, infer_dayfirst, is_blank, parse_date, parse_month, parse_number, sku_confusable,
                      sku_key, sku_text)
 
 SALES_COLUMNS = ["order_id", "order_date", "region", "sku", "quantity", "unit_price", "amount", "customer",
@@ -49,6 +49,7 @@ class CleanResult:
     rows: pd.DataFrame
     rejected: list[dict]
     audit: list[dict]
+    currencies: set[str] = field(default_factory=set)  # currency marks seen in the money columns
 
 
 def _text(value: object) -> str | None:
@@ -214,11 +215,14 @@ def clean_sales(table: Table, mapping: Mapping, products: ProductIndex | None, r
             "no region column and no region in the file name: rows marked Unassigned", len(rows))
     if not col["order_id"]:
         log("no order number column: duplicate lines cannot be detected in this file", len(rows))
+    # Amounts are never converted. The marks are collected so that the agent can warn when files disagree.
+    currencies = {m.group(0).upper() for name in ("unit_price", "amount") if col[name]
+                  for v in df[col[name]] if isinstance(v, str) and (m := CURRENCY_MARK.search(v))}
     out = pd.DataFrame(rows, columns=SALES_COLUMNS)
     # A file with no quantity column leaves None here; as floats the gaps become NaN and sums still work.
     for name in ("quantity", "unit_price", "amount"):
         out[name] = pd.to_numeric(out[name], errors="coerce")
-    return CleanResult(out, rejected, audit)
+    return CleanResult(out, rejected, audit, currencies)
 
 
 def drop_duplicates(sales: pd.DataFrame) -> tuple[pd.DataFrame, list[dict], list[dict]]:

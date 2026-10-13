@@ -49,7 +49,7 @@
 <section class="summary">
   <h2>Summary</h2>
   <p>{{ summary.text }}</p>
-  <span class="tag">Written by: {{ summary.source }}. Every number in it was checked against the figures below.</span>
+  <span class="tag">Written by: {{ summary.source }}. {% if summary.source == "model" %}Its numbers were checked against the figures below; read the wording before sending it on.{% else %}Every number in it comes from the figures below.{% endif %}</span>
 </section>
 
 <div class="tiles">

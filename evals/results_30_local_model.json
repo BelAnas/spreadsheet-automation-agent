@@ -1,0 +1,56 @@
+{
+  "files": 30,
+  "provider": "openai",
+  "model": "llama3.2-cpu:latest",
+  "model_calls": 47,
+  "input_tokens": 7048,
+  "output_tokens": 112,
+  "cost_usd": null,
+  "header_row_accuracy_pct": 100.0,
+  "sheets": 40,
+  "column_accuracy_seen_pct": 100.0,
+  "columns_seen": 154,
+  "column_accuracy_unseen_pct": 93.9,
+  "columns_unseen": 114,
+  "junk_columns_left_alone_pct": 93.3,
+  "columns_junk": 45,
+  "accuracy_by_method_pct": {
+    "arithmetic": {
+      "correct_pct": 100.0,
+      "columns": 18
+    },
+    "model": {
+      "correct_pct": 90.6,
+      "columns": 32
+    },
+    "name": {
+      "correct_pct": 100.0,
+      "columns": 154
+    },
+    "profile": {
+      "correct_pct": 100.0,
+      "columns": 53
+    },
+    "similar name": {
+      "correct_pct": 100.0,
+      "columns": 7
+    }
+  },
+  "row_recovery_pct": 100.0,
+  "row_precision_pct": 100.0,
+  "files_fully_correct": 30,
+  "files_not_readable": 0,
+  "mean_revenue_error_pct": 0.0,
+  "region_accuracy_pct": 100.0,
+  "bad_rows_caught_pct": 100.0,
+  "bad_rows": 67,
+  "good_rows_wrongly_rejected": 0,
+  "duplicates_removed_pct": 100.0,
+  "duplicates": 99,
+  "baseline_row_recovery_pct": 0.0,
+  "baseline_files_fully_correct": 0,
+  "baseline_mean_revenue_error_pct": 100.0,
+  "seconds_per_file": 11.82,
+  "failures": [],
+  "command": "python -m evals.run --files 30 --seed 5151 --provider openai"
+}
