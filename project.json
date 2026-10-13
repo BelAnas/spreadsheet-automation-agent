@@ -207,26 +207,26 @@
     {
       "name": "Interface",
       "goal": "One command for the demo, a schedulable command for real use, and an upload page.",
-      "status": "todo",
+      "status": "done",
       "steps": [
         {
           "text": "Command line: demo, run, and make-data commands with a readable step-by-step log",
-          "done": false
+          "done": true
         },
         {
           "text": "FastAPI upload page: drop files, run, view and download the report",
-          "done": false
+          "done": true
         },
         {
           "text": "Google Sheets link test against a local web server",
-          "done": false
+          "done": true
         },
         {
           "text": "Schedule example (cron) for the recurring run",
-          "done": false
+          "done": true
         }
       ],
-      "outcome": ""
+      "outcome": "Three ways to run it: 'python -m sheetagent demo' builds two months of reports from generated files in about three seconds; 'python -m sheetagent run <files, folders or Google Sheets links>' is the command a scheduler calls, with a cron script that builds last month's report; and 'python -m sheetagent serve' opens an upload page where a non-technical person drops the files and gets the web report and the Excel file back. Reading a table from a link is tested against a local web server, and the upload page was run in a real browser."
     },
     {
       "name": "Verification and docs",
