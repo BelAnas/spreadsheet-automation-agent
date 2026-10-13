@@ -179,30 +179,30 @@
     {
       "name": "Quality",
       "goal": "Measured accuracy on files the pipeline has not seen, and guardrails for the model.",
-      "status": "todo",
+      "status": "done",
       "steps": [
         {
           "text": "Benchmark of randomly generated messy files with known truth",
-          "done": false
+          "done": true
         },
         {
           "text": "Metrics: header detection, column mapping (seen and unseen names), row recovery, revenue error, rejected-row precision and recall",
-          "done": false
+          "done": true
         },
         {
           "text": "Compare with the naive baseline on the same files",
-          "done": false
+          "done": true
         },
         {
           "text": "Fix the defects the benchmark finds and re-run",
-          "done": false
+          "done": true
         },
         {
           "text": "Error handling: unreadable files, sheets with no table, missing product list, model failures",
-          "done": false
+          "done": true
         }
       ],
-      "outcome": ""
+      "outcome": "A benchmark that spoils sales files at random and scores the cleaning against the known truth, next to a naive pandas baseline. It found four real defects, all fixed: a crash on files with no quantity column, files skipped when only two of quantity, price and total were present under unfamiliar names, a price-like header that was really a line total, and sheets of one workbook being read separately. 107 offline tests cover every parser, every mapping method, the model guardrails and the failure cases (broken file, unknown table, missing product list, model outage)."
     },
     {
       "name": "Interface",
